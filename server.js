@@ -2,7 +2,6 @@
 
 const express = require('express');
 const cors = require('cors');
-const morgan = require('morgan');
 const dotenv = require('dotenv');
 const { Pool } = require('pg');
 
@@ -21,7 +20,7 @@ if (!DATABASE_URL || !ADMIN_KEY) {
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(morgan('dev'));
+// Removed morgan usage here
 app.use(express.static('public'));
 
 // PostgreSQL connection
@@ -38,8 +37,6 @@ const authenticateAdmin = (req, res, next) => {
   }
   next();
 };
-
-// Suggestion: Add schema validation using Joi or Zod for production-grade reliability
 
 // POST: Add a business (public)
 app.post('/api/businesses', async (req, res) => {
