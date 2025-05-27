@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>TownLink Admin Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+</head>
+<body class="bg-gray-50 text-gray-900">
+    <header class="bg-blue-600 text-white p-4 flex justify-between items-center">
+        <h1 class="text-xl font-bold">TownLink</h1>
+        <nav class="space-x-4">
+            <a href="index.html" class="hover:underline">Home</a>
+            <a href="add-business.html" class="hover:underline">Add Business</a>
+            <a href="admin.html" class="hover:underline font-semibold">Admin</a>
+        </nav>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-6">
+        <section class="bg-white p-6 rounded shadow">
+            <h2 class="text-2xl font-bold mb-4">Admin Panel: Pending Businesses</h2>
+
+            <div id="admin-key-section" class="mb-4">
+                <label for="adminKeyInput" class="block mb-1 text-gray-700">Enter Admin Key:</label>
+                <input
+                    type="password"
+                    id="adminKeyInput"
+                    placeholder="Admin Key"
+                    class="border px-4 py-2 rounded w-full max-w-sm"
+                />
+                <button
+                    id="submitAdminKey"
+                    class="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                    Submit Key
+                </button>
+                <p id="adminMessage" class="text-red-600 mt-2"></p>
+            </div>
+
+            <div id="pending-businesses-list" class="space-y-4 hidden"></div>
+        </section>
+    </main>
+
+    <footer class="text-center text-sm text-gray-500 mt-10 py-4 border-t">
+        &copy; 2025 TownLink. All rights reserved.
+    </footer>
+
+    <script src="admin.js"></script>
+</body>
+</html>
