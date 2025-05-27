@@ -2,9 +2,11 @@
 const express = require('express');
 const cors = require('cors');
 const app = express();
+
+// ✅ Always use process.env.PORT for Render/Heroku, fallback to 3000 for local
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors()); // Open CORS for now; tighten later for production
 app.use(express.json());
 app.use(express.static('public'));
 
@@ -13,12 +15,13 @@ let nextId = 1;
 
 const ADMIN_KEY = 'supersecretadminkey';
 
-// Add a business
+// ✅ Add a business
 app.post('/api/businesses', (req, res) => {
     const { name, description, location, phone, email, website, hours, image, latitude, longitude, category } = req.body;
     if (!name || !description || !location || !category) {
         return res.status(400).json({ error: 'Missing required fields.' });
     }
+
     const newBusiness = {
         id: nextId++,
         name,
@@ -38,13 +41,13 @@ app.post('/api/businesses', (req, res) => {
     res.status(201).json(newBusiness);
 });
 
-// Get approved businesses
+// ✅ Get approved businesses
 app.get('/api/businesses', (req, res) => {
     const approvedBusinesses = businesses.filter(b => b.status === 'approved');
     res.json(approvedBusinesses);
 });
 
-// Admin: Get pending businesses
+// ✅ Admin: Get pending businesses
 app.get('/admin/pending-businesses', (req, res) => {
     const key = req.header('x-admin-key');
     if (key !== ADMIN_KEY) {
@@ -54,7 +57,7 @@ app.get('/admin/pending-businesses', (req, res) => {
     res.json(pending);
 });
 
-// Admin: Approve a business
+// ✅ Admin: Approve a business
 app.post('/admin/approve/:id', (req, res) => {
     const key = req.header('x-admin-key');
     if (key !== ADMIN_KEY) {
@@ -70,7 +73,7 @@ app.post('/admin/approve/:id', (req, res) => {
     }
 });
 
-// Admin: Delete a business
+// ✅ Admin: Delete a business
 app.delete('/admin/delete/:id', (req, res) => {
     const key = req.header('x-admin-key');
     if (key !== ADMIN_KEY) {
@@ -86,6 +89,7 @@ app.delete('/admin/delete/:id', (req, res) => {
     }
 });
 
+// ✅ Only ONE app.listen call here
 app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`✅ Server running at http://localhost:${PORT}`);
 });
