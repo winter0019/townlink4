@@ -1,127 +1,145 @@
 const express = require('express');
-const path = require('path');
 const cors = require('cors');
+const { Pool } = require('pg');
+require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 10000;
-const ADMIN_KEY = 'supersecretadminkey'; // replace with env var in production
+const PORT = process.env.PORT || 3000;
 
-let businesses = [];
-let nextId = 1;
-
-// Enable CORS & JSON parsing
 app.use(cors());
 app.use(express.json());
+app.use(express.static('public'));
 
-// Serve static assets (JS, CSS, images, HTML files)
-app.use(express.static(__dirname));
+const ADMIN_KEY = process.env.ADMIN_KEY || 'supersecretadminkey';
 
-// Serve all HTML pages by their route (without .html in URL)
-const htmlPages = [
-  'index',
-  'admin',
-  'add-business',
-  'business-detail',
-  'login',
-  'register'
-];
-
-htmlPages.forEach(page => {
-  app.get(`/${page}`, (req, res) => {
-    res.sendFile(path.join(__dirname, `${page}.html`));
-  });
+// PostgreSQL connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgresql://user:password@localhost:5432/your_database_name',
 });
 
-// Root route
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// ========== API ROUTES ==========
-
-// POST /api/businesses
-app.post('/api/businesses', (req, res) => {
+// Add a business
+app.post('/api/businesses', async (req, res) => {
   const {
-    name, description, location, phone, email,
-    website, hours, image, latitude, longitude, category
+    name,
+    description,
+    location,
+    phone,
+    email,
+    website,
+    hours,
+    image,
+    latitude,
+    longitude,
+    category
   } = req.body;
 
   if (!name || !description || !location || !category) {
     return res.status(400).json({ error: 'Missing required fields.' });
   }
 
-  const newBusiness = {
-    id: nextId++,
-    name,
-    description,
-    location,
-    phone: phone || '',
-    email: email || '',
-    website: website || '',
-    hours: hours || '',
-    image: image || '',
-    latitude: latitude || null,
-    longitude: longitude || null,
-    category,
-    status: 'pending'
-  };
-
-  businesses.push(newBusiness);
-  res.status(201).json(newBusiness);
+  try {
+    const result = await pool.query(
+      `INSERT INTO businesses (
+         name, description, location, phone, email, website,
+         hours, image, latitude, longitude, category, status
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending')
+       RETURNING *`,
+      [
+        name,
+        description,
+        location,
+        phone || '',
+        email || '',
+        website || '',
+        hours || '',
+        image || '',
+        latitude || null,
+        longitude || null,
+        category,
+      ]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error inserting business:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
 });
 
-// GET /api/businesses (approved only)
-app.get('/api/businesses', (req, res) => {
-  const approved = businesses.filter(b => b.status === 'approved');
-  res.json(approved);
+// Get approved businesses
+app.get('/api/businesses', async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM businesses WHERE status = 'approved'");
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching approved businesses:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
 });
 
-// GET /admin/pending-businesses
-app.get('/admin/pending-businesses', (req, res) => {
+// Admin: Get pending businesses
+app.get('/admin/pending-businesses', async (req, res) => {
   const key = req.header('x-admin-key');
   if (key !== ADMIN_KEY) {
     return res.status(403).json({ error: 'Unauthorized' });
   }
 
-  const pending = businesses.filter(b => b.status === 'pending');
-  res.json(pending);
+  try {
+    const result = await pool.query("SELECT * FROM businesses WHERE status = 'pending'");
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching pending businesses:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
 });
 
-// POST /admin/approve/:id
-app.post('/admin/approve/:id', (req, res) => {
+// Admin: Approve a business
+app.post('/admin/approve/:id', async (req, res) => {
   const key = req.header('x-admin-key');
   if (key !== ADMIN_KEY) {
     return res.status(403).json({ error: 'Unauthorized' });
   }
 
   const id = parseInt(req.params.id);
-  const business = businesses.find(b => b.id === id);
-  if (business) {
-    business.status = 'approved';
+  try {
+    const result = await pool.query(
+      'UPDATE businesses SET status = $1 WHERE id = $2 RETURNING *',
+      ['approved', id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Business not found.' });
+    }
+
     res.json({ message: 'Business approved.' });
-  } else {
-    res.status(404).json({ error: 'Business not found.' });
+  } catch (err) {
+    console.error('Error approving business:', err);
+    res.status(500).json({ error: 'Internal server error.' });
   }
 });
 
-// DELETE /admin/delete/:id
-app.delete('/admin/delete/:id', (req, res) => {
+// Admin: Delete a business
+app.delete('/admin/delete/:id', async (req, res) => {
   const key = req.header('x-admin-key');
   if (key !== ADMIN_KEY) {
     return res.status(403).json({ error: 'Unauthorized' });
   }
 
   const id = parseInt(req.params.id);
-  const index = businesses.findIndex(b => b.id === id);
-  if (index !== -1) {
-    businesses.splice(index, 1);
+  try {
+    const result = await pool.query('DELETE FROM businesses WHERE id = $1 RETURNING *', [id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Business not found.' });
+    }
+
     res.json({ message: 'Business deleted.' });
-  } else {
-    res.status(404).json({ error: 'Business not found.' });
+  } catch (err) {
+    console.error('Error deleting business:', err);
+    res.status(500).json({ error: 'Internal server error.' });
   }
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`✅ Server running at http://localhost:${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
