@@ -1,23 +1,8 @@
-{
-  "name": "townlink-server",
-  "version": "1.0.0",
-  "description": "Backend server for the TownLink directory application",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "pg": "^8.11.3",
-    "sqlite3": "^5.1.7"
-  },
-  "devDependencies": {
-    "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.3",
-    "tailwindcss": "^4.1.7"
-  }
+"dependencies": {
+  "cors": "^2.8.5",
+  "dotenv": "^16.4.5",         // 👈 Added
+  "express": "^4.18.2",
+  "morgan": "^1.10.0",         // 👈 Added
+  "pg": "^8.11.3",
+  "sqlite3": "^5.1.7"
 }
