@@ -1,35 +1,27 @@
 // server/db.js
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { Pool } = require('pg');
+const dotenv = require('dotenv');
+dotenv.config();
 
-// Define the path to your SQLite database file
-const DB_PATH = path.resolve(__dirname, 'townlink.sqlite');
-
-// Connect to the SQLite database
-// If the file does not exist, it will be created.
-const db = new sqlite3.Database(DB_PATH, (err) => {
-    if (err) {
-        console.error('Error connecting to SQLite database:', err.message);
-    } else {
-        console.log('Connected to SQLite database at:', DB_PATH);
-        // Initialize tables after successful connection
-        initializeDb();
-    }
+// Create a connection pool using environment variables
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL, // e.g. postgres://user:pass@host:port/db
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// Function to initialize tables
-function initializeDb() {
-    // Users table (even if not used for auth, if your previous server had it, you might keep it for now)
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+// Initialize tables (run once at server startup)
+async function initializeDb() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
         username TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    // Businesses table
-    db.run(`CREATE TABLE IF NOT EXISTS businesses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      
+      CREATE TABLE IF NOT EXISTS businesses (
+        id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
         category TEXT NOT NULL,
         location TEXT NOT NULL,
@@ -42,21 +34,25 @@ function initializeDb() {
         latitude REAL,
         longitude REAL,
         rating REAL DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
 
-    // Reviews table
-    db.run(`CREATE TABLE IF NOT EXISTS reviews (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        business_id INTEGER NOT NULL,
+      CREATE TABLE IF NOT EXISTS reviews (
+        id SERIAL PRIMARY KEY,
+        business_id INTEGER REFERENCES businesses(id) ON DELETE CASCADE,
         reviewer_name TEXT NOT NULL,
         text TEXT NOT NULL,
         rating INTEGER NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
-    )`);
-
-    console.log('SQLite tables checked/created.');
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    console.log("✅ PostgreSQL tables checked/created.");
+  } catch (err) {
+    console.error("❌ Error initializing database:", err.message);
+  }
 }
 
-module.exports = db;
+// Immediately initialize tables when this module is loaded
+initializeDb();
+
+module.exports = pool;
