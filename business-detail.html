@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TownLink Directory - Business Details</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="manifest" href="manifest.json" />
+    <style>
+        #map {
+            height: 400px; /* Adjust as needed */
+            width: 100%;
+            border-radius: 0.5rem; /* Matches Tailwind's rounded-lg */
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <header class="flex items-center justify-between px-6 py-4 bg-blue-600 text-white shadow">
+        <div class="text-xl font-bold">TownLink</div>
+        <button id="mobile-menu-button" class="md:hidden" aria-label="Toggle menu">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
+        <ul id="nav-menu" class="hidden md:flex space-x-4">
+            <li><a href="index.html" class="hover:underline">Home</a></li>
+            <li><a href="add-business.html" class="hover:underline">Add Business</a></li>
+            <li><a href="admin.html" class="hover:underline">Admin</a></li> </ul>
+    </header>
+
+    <main class="px-6 py-10 max-w-5xl mx-auto">
+        <section id="business-detail-content" class="bg-white p-8 rounded-lg shadow-lg">
+            <h1 id="detail-business-name" class="text-3xl font-bold mb-4"></h1>
+            <p id="detail-business-category" class="text-lg text-gray-600 mb-2"></p>
+            <div id="detail-business-rating" class="mb-4"></div>
+            <p id="detail-business-location" class="text-gray-700 mb-4"></p>
+
+            <div class="mb-6">
+                <img id="detail-business-image" src="" alt="Business Image" class="w-full h-64 object-cover rounded-lg shadow-md" />
+            </div>
+
+            <p id="detail-business-description" class="text-gray-800 leading-relaxed mb-6"></p>
+
+            <h3 class="text-2xl font-semibold mt-8 mb-4 border-b pb-2">Contact & Hours</h3>
+            <div class="space-y-2 mb-6">
+                <p id="detail-business-phone" class="text-gray-700"><span class="font-semibold">Phone:</span> Not available</p>
+                <p id="detail-business-email" class="text-gray-700"><span class="font-semibold">Email:</span> Not available</p>
+                <p id="detail-business-website" class="text-gray-700"><span class="font-semibold">Website:</span> Not available</p>
+                <p id="detail-business-hours" class="text-gray-700"><span class="font-semibold">Hours:</span> Not available</p>
+            </div>
+
+            <h3 class="text-2xl font-semibold mt-8 mb-4 border-b pb-2">Location</h3>
+            <div id="map" class="mb-6 rounded-lg shadow-md"></div>
+
+            <h3 class="text-2xl font-semibold mt-8 mb-4 border-b pb-2">Reviews</h3>
+            <div id="detail-business-reviews" class="space-y-4">
+                <p class="text-gray-600">Loading reviews...</p>
+            </div>
+
+            <div class="mt-8">
+                <a href="index.html" class="inline-block bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700">Back to Directory</a>
+            </div>
+        </section>
+    </main>
+
+    <footer class="mt-10 py-4 text-center text-sm text-gray-500 border-t">
+        <p>&copy; 2025 TownLink. All rights reserved.</p>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script defer src="business-detail.js"></script>
+</body>
+</html>
