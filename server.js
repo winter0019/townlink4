@@ -18,18 +18,19 @@ if (!DATABASE_URL || !ADMIN_KEY) {
 }
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*', // For production, replace with specific origin like: 'http://yourfrontend.com'
+}));
 app.use(express.json());
-// Removed morgan usage here
 app.use(express.static('public'));
 
 // PostgreSQL connection
 const pool = new Pool({
   connectionString: DATABASE_URL,
-  ssl: { rejectUnauthorized: false }, // Compatible with Render, Railway, etc.
+  ssl: { rejectUnauthorized: false }, // Use 'false' for hosted services like Render
 });
 
-// Utility: Admin authentication middleware
+// Admin authentication middleware
 const authenticateAdmin = (req, res, next) => {
   const key = req.header('x-admin-key');
   if (key !== ADMIN_KEY) {
@@ -38,7 +39,7 @@ const authenticateAdmin = (req, res, next) => {
   next();
 };
 
-// POST: Add a business (public)
+// POST: Submit new business
 app.post('/api/businesses', async (req, res) => {
   const {
     name, description, location, phone, email,
@@ -65,7 +66,7 @@ app.post('/api/businesses', async (req, res) => {
   }
 });
 
-// GET: All approved businesses (public)
+// GET: Approved businesses
 app.get('/api/businesses', async (req, res) => {
   try {
     const { rows } = await pool.query("SELECT * FROM businesses WHERE status = 'approved'");
@@ -76,7 +77,7 @@ app.get('/api/businesses', async (req, res) => {
   }
 });
 
-// Admin routes
+// Admin Routes
 const adminPrefix = '/admin';
 
 // GET: Pending businesses
@@ -90,7 +91,7 @@ app.get(`${adminPrefix}/pending-businesses`, authenticateAdmin, async (req, res)
   }
 });
 
-// POST: Approve business by ID
+// POST: Approve business
 app.post(`${adminPrefix}/approve/:id`, authenticateAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
   try {
@@ -106,7 +107,7 @@ app.post(`${adminPrefix}/approve/:id`, authenticateAdmin, async (req, res) => {
   }
 });
 
-// DELETE: Delete business by ID
+// DELETE: Delete business
 app.delete(`${adminPrefix}/delete/:id`, authenticateAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
   try {
