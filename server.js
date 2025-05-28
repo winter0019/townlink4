@@ -285,11 +285,8 @@ app.delete('/api/businesses/:id', requireAdminKey, async (req, res) => {
     }
 });
 
----
+// --- New API Routes for Reviews ---
 
-### **New API Routes for Reviews**
-
-```javascript
 // POST a new review for a business
 app.post('/api/reviews', async (req, res) => {
     const { business_id, reviewer_name, review_text, rating } = req.body;
@@ -336,11 +333,7 @@ app.get('/api/businesses/:id/reviews', async (req, res) => {
     }
 });
 
----
-
-### **Server Start**
-
-```javascript
+// --- Server Start ---
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Node.js environment: ${process.env.NODE_ENV || 'development'}`);
