@@ -1,137 +1,174 @@
 // server.js
-
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
-const { Pool } = require('pg');
-
-dotenv.config();
+const { Pool } = require('pg'); // Import Pool for PostgreSQL
+require('dotenv').config(); // Load environment variables from .env file
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ADMIN_KEY = process.env.ADMIN_KEY;
-const DATABASE_URL = process.env.DATABASE_URL;
 
-if (!DATABASE_URL || !ADMIN_KEY) {
-  console.error('❌ Missing DATABASE_URL or ADMIN_KEY in environment variables.');
-  process.exit(1);
+// --- Database Connection (PostgreSQL) ---
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+    console.error('DATABASE_URL not found in environment variables. Please set it.');
+    process.exit(1);
 }
 
-// Middleware
+const pool = new Pool({
+    connectionString: DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false // Required for Render Postgres public URL. Adjust for production if using private network.
+    }
+});
+
+pool.connect()
+    .then(client => {
+        console.log('Connected to PostgreSQL database!');
+        client.release(); // Release the client immediately after connection test
+    })
+    .catch(err => {
+        console.error('Error connecting to PostgreSQL database:', err.message);
+        process.exit(1);
+    });
+
+// --- CORS Configuration ---
+const allowedOriginsString = process.env.ALLOWED_ORIGINS || 'http://localhost:5173'; // Default for development
+const allowedOrigins = allowedOriginsString.split(',').map(origin => origin.trim());
+
 app.use(cors({
-  origin: '*', // For production, replace with specific origin like: 'http://yourfrontend.com'
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        } else {
+            const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
+            console.warn(msg); // Log blocked origins for debugging
+            return callback(new Error(msg), false);
+        }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Explicitly allow OPTIONS for preflight
+    allowedHeaders: ['Content-Type', 'x-admin-key'], // Explicitly allow custom headers
+    credentials: true // If you handle cookies or session IDs
 }));
+
 app.use(express.json());
 app.use(express.static('public'));
 
-// PostgreSQL connection
-const pool = new Pool({
-  connectionString: DATABASE_URL,
-  ssl: { rejectUnauthorized: false }, // Use 'false' for hosted services like Render
-});
+// --- Admin Key (use environment variable) ---
+const ADMIN_KEY = process.env.ADMIN_KEY;
+if (!ADMIN_KEY) {
+    console.error('ADMIN_KEY not found in environment variables. Please set it.');
+    process.exit(1);
+}
 
-// Admin authentication middleware
-const authenticateAdmin = (req, res, next) => {
-  const key = req.header('x-admin-key');
-  if (key !== ADMIN_KEY) {
-    return res.status(403).json({ error: 'Unauthorized: Invalid admin key' });
-  }
-  next();
-};
+// --- Routes ---
 
-// POST: Submit new business
+// Helper function for database queries
+async function query(text, params) {
+    const client = await pool.connect();
+    try {
+        const res = await client.query(text, params);
+        return res;
+    } finally {
+        client.release();
+    }
+}
+
+// Add a business
 app.post('/api/businesses', async (req, res) => {
-  const {
-    name, description, location, phone, email,
-    website, hours, image, latitude, longitude, category,
-  } = req.body;
+    const { name, description, location, phone, email, website, hours, image, latitude, longitude, category } = req.body;
+    if (!name || !description || !location || !category) {
+        return res.status(400).json({ error: 'Missing required fields.' });
+    }
 
-  if (!name || !description || !location || !category) {
-    return res.status(400).json({ error: 'Missing required fields: name, description, location, or category.' });
-  }
-
-  try {
-    const { rows } = await pool.query(`
-      INSERT INTO businesses (
-        name, description, location, phone, email, website,
-        hours, image, latitude, longitude, category, status
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending')
-      RETURNING *`,
-      [name, description, location, phone || '', email || '', website || '', hours || '', image || '', latitude || null, longitude || null, category]
-    );
-    res.status(201).json({ message: '✅ Business submitted for approval.', business: rows[0] });
-  } catch (err) {
-    console.error('❌ Failed to add business:', err);
-    res.status(500).json({ error: 'Internal server error.' });
-  }
+    try {
+        const result = await query(
+            `INSERT INTO businesses (name, description, location, phone, email, website, hours, image, latitude, longitude, category, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+             RETURNING *`, // Return the inserted row
+            [name, description, location, phone || '', email || '', website || '', hours || '', image || '', latitude, longitude, category, 'pending']
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error adding business:', error);
+        res.status(500).json({ error: 'Failed to add business', details: error.message });
+    }
 });
 
-// GET: Approved businesses
+// Get approved businesses
 app.get('/api/businesses', async (req, res) => {
-  try {
-    const { rows } = await pool.query("SELECT * FROM businesses WHERE status = 'approved'");
-    res.json(rows);
-  } catch (err) {
-    console.error('❌ Failed to fetch approved businesses:', err);
-    res.status(500).json({ error: 'Internal server error.' });
-  }
+    try {
+        const result = await query(`SELECT * FROM businesses WHERE status = 'approved'`);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error retrieving approved businesses:', error);
+        res.status(500).json({ error: 'Failed to retrieve businesses', details: error.message });
+    }
 });
 
-// Admin Routes
-const adminPrefix = '/admin';
-
-// GET: Pending businesses
-app.get(`${adminPrefix}/pending-businesses`, authenticateAdmin, async (req, res) => {
-  try {
-    const { rows } = await pool.query("SELECT * FROM businesses WHERE status = 'pending'");
-    res.json(rows);
-  } catch (err) {
-    console.error('❌ Failed to fetch pending businesses:', err);
-    res.status(500).json({ error: 'Internal server error.' });
-  }
+// Admin: Get pending businesses
+app.get('/admin/pending-businesses', async (req, res) => {
+    const key = req.header('x-admin-key');
+    if (key !== ADMIN_KEY) {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+    try {
+        const result = await query(`SELECT * FROM businesses WHERE status = 'pending'`);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error retrieving pending businesses:', error);
+        res.status(500).json({ error: 'Failed to retrieve pending businesses', details: error.message });
+    }
 });
 
-// POST: Approve business
-app.post(`${adminPrefix}/approve/:id`, authenticateAdmin, async (req, res) => {
-  const id = parseInt(req.params.id);
-  try {
-    const { rowCount, rows } = await pool.query(
-      'UPDATE businesses SET status = $1 WHERE id = $2 RETURNING *',
-      ['approved', id]
-    );
-    if (rowCount === 0) return res.status(404).json({ error: 'Business not found.' });
-    res.json({ message: '✅ Business approved.', business: rows[0] });
-  } catch (err) {
-    console.error('❌ Failed to approve business:', err);
-    res.status(500).json({ error: 'Internal server error.' });
-  }
+// Admin: Approve a business
+app.post('/admin/approve/:id', async (req, res) => {
+    const key = req.header('x-admin-key');
+    if (key !== ADMIN_KEY) {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const { id } = req.params; // ID from URL parameter
+    try {
+        const result = await query(
+            `UPDATE businesses SET status = 'approved' WHERE id = $1 RETURNING *`,
+            [id]
+        );
+        if (result.rows.length > 0) {
+            res.json({ message: 'Business approved.', business: result.rows[0] });
+        } else {
+            res.status(404).json({ error: 'Business not found.' });
+        }
+    } catch (error) {
+        console.error('Error approving business:', error);
+        res.status(500).json({ error: 'Failed to approve business', details: error.message });
+    }
 });
 
-// DELETE: Delete business
-app.delete(`${adminPrefix}/delete/:id`, authenticateAdmin, async (req, res) => {
-  const id = parseInt(req.params.id);
-  try {
-    const { rowCount, rows } = await pool.query('DELETE FROM businesses WHERE id = $1 RETURNING *', [id]);
-    if (rowCount === 0) return res.status(404).json({ error: 'Business not found.' });
-    res.json({ message: '🗑️ Business deleted.', business: rows[0] });
-  } catch (err) {
-    console.error('❌ Failed to delete business:', err);
-    res.status(500).json({ error: 'Internal server error.' });
-  }
+// Admin: Delete a business
+app.delete('/admin/delete/:id', async (req, res) => {
+    const key = req.header('x-admin-key');
+    if (key !== ADMIN_KEY) {
+        return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const { id } = req.params; // ID from URL parameter
+    try {
+        const result = await query(
+            `DELETE FROM businesses WHERE id = $1 RETURNING *`,
+            [id]
+        );
+        if (result.rows.length > 0) {
+            res.json({ message: 'Business deleted.' });
+        } else {
+            res.status(404).json({ error: 'Business not found.' });
+        }
+    } catch (error) {
+        console.error('Error deleting business:', error);
+        res.status(500).json({ error: 'Failed to delete business', details: error.message });
+    }
 });
 
-// Fallback route
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found.' });
-});
-
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error('❌ Uncaught error:', err.stack);
-  res.status(500).json({ error: 'Unexpected server error.' });
-});
-
-// Start server
+// --- Server Start ---
 app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
