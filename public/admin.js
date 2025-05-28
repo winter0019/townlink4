@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:3000';
+const API_BASE_URL = 'https://your-townlink-api.onrender.com/api/businesses'; // Use the URL you got from Render for your backend
 
 const adminKeyInput = document.getElementById('adminKeyInput');
 const submitAdminKeyBtn = document.getElementById('submitAdminKey');
