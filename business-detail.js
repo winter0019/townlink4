@@ -1,7 +1,7 @@
 // business-detail.js
 document.addEventListener('DOMContentLoaded', () => {
     // API Base URL (ensure this matches your backend server's URL and port)
-    const API_BASE_URL = 'http://localhost:3000/api';
+    const API_BASE_URL = 'https://your-townlink-api.onrender.com/api/businesses'; // Use the URL you got from Render for your backend
 
     // --- DOM Elements ---
     const detailBusinessName = document.getElementById('detail-business-name');
