@@ -113,13 +113,29 @@ async function query(text, params) {
 // GET all businesses (Public view: only 'approved'; Admin view: all with 'X-Admin-Key')
 app.get('/api/businesses', async (req, res) => {
     const adminKey = req.headers['x-admin-key'];
-    let sqlQuery = 'SELECT * FROM businesses WHERE status = $1 ORDER BY id DESC'; // Default: approved businesses, ordered by ID
+    
+    let sqlQuery = `
+        SELECT
+            b.*,
+            COALESCE(AVG(r.rating), 0) AS average_rating -- Calculate average rating, default to 0 if no reviews
+        FROM businesses b
+        LEFT JOIN reviews r ON b.id = r.business_id
+        WHERE b.status = $1
+        GROUP BY b.id
+        ORDER BY b.id DESC`;
     let params = ['approved'];
 
     // If admin key is provided and valid, return all businesses regardless of status
     if (adminKey === ADMIN_KEY) {
-        sqlQuery = 'SELECT * FROM businesses ORDER BY id DESC'; // Admin sees all businesses
-        params = []; // No WHERE clause parameters needed for admin view
+        sqlQuery = `
+            SELECT
+                b.*,
+                COALESCE(AVG(r.rating), 0) AS average_rating
+            FROM businesses b
+            LEFT JOIN reviews r ON b.id = r.business_id
+            GROUP BY b.id
+            ORDER BY b.id DESC`;
+        params = [];
     }
 
     try {
@@ -135,7 +151,16 @@ app.get('/api/businesses', async (req, res) => {
 app.get('/api/businesses/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        const result = await query('SELECT * FROM businesses WHERE id = $1', [id]);
+        const result = await query(
+            `SELECT 
+                b.*, 
+                COALESCE(AVG(r.rating), 0) AS average_rating 
+            FROM businesses b
+            LEFT JOIN reviews r ON b.id = r.business_id
+            WHERE b.id = $1
+            GROUP BY b.id`, 
+            [id]
+        );
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Business not found.' });
         }
@@ -260,7 +285,62 @@ app.delete('/api/businesses/:id', requireAdminKey, async (req, res) => {
     }
 });
 
-// --- Server Start ---
+---
+
+### **New API Routes for Reviews**
+
+```javascript
+// POST a new review for a business
+app.post('/api/reviews', async (req, res) => {
+    const { business_id, reviewer_name, review_text, rating } = req.body;
+
+    if (!business_id || !reviewer_name || !review_text || !rating) {
+        return res.status(400).json({ message: 'Business ID, reviewer name, review text, and rating are required.' });
+    }
+    if (rating < 1 || rating > 5) {
+        return res.status(400).json({ message: 'Rating must be between 1 and 5.' });
+    }
+
+    try {
+        // First, check if the business exists
+        const businessCheck = await query('SELECT id FROM businesses WHERE id = $1', [business_id]);
+        if (businessCheck.rows.length === 0) {
+            return res.status(404).json({ message: 'Business not found.' });
+        }
+
+        const result = await query(
+            `INSERT INTO reviews (business_id, reviewer_name, review_text, rating)
+             VALUES ($1, $2, $3, $4)
+             RETURNING *`,
+            [business_id, reviewer_name, review_text, rating]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error submitting review:', error);
+        res.status(500).json({ error: 'Failed to submit review', details: error.message });
+    }
+});
+
+// GET all reviews for a specific business
+app.get('/api/businesses/:id/reviews', async (req, res) => {
+    const { id } = req.params; // Business ID
+    try {
+        const result = await query(
+            `SELECT * FROM reviews WHERE business_id = $1 ORDER BY review_date DESC`,
+            [id]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        console.error(`Error fetching reviews for business ID ${id}:`, error);
+        res.status(500).json({ error: 'Failed to fetch reviews', details: error.message });
+    }
+});
+
+---
+
+### **Server Start**
+
+```javascript
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Node.js environment: ${process.env.NODE_ENV || 'development'}`);
