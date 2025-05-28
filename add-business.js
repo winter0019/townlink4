@@ -1,7 +1,7 @@
 // add-business.js
 document.addEventListener('DOMContentLoaded', () => {
     // API Base URL (Important: make sure this matches your backend server's port)
-    const API_BASE_URL = 'http://localhost:3000/api'; // Keep for local testing
+    const API_BASE_URL = 'https://your-townlink-api.onrender.com/api/businesses'; // Use the URL you got from Render for your backend
 
     // --- DOM Elements ---
     const addBusinessForm = document.getElementById('add-business-form');
