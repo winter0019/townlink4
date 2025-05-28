@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const API_BASE_URL = 'http://localhost:3000/api';
+  const API_BASE_URL = 'https://townlink-backend.onrender.com/api'; // ✅ Updated for production
 
   const businessesContainer = document.getElementById('business-listings');
   const searchInput = document.getElementById('searchInput');
