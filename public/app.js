@@ -2,11 +2,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Dynamic API Base URL ---
     let API_BASE_URL;
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        API_BASE_URL = 'http://localhost:3000/api/businesses'; 
+        API_BASE_URL = 'http://localhost:3000/api'; // Corrected: Base is just /api
     } else {
         // IMPORTANT: REPLACE 'https://your-actual-townlink-api.onrender.com' with your backend's URL from Render
-        // The URL should point to the base of your business API endpoints
-        API_BASE_URL = 'https://your-actual-townlink-api.onrender.com/api/businesses'; 
+        // The URL should point to the base of your API (e.g., https://your-backend.onrender.com/api)
+        API_BASE_URL = 'https://townlink-backend.onrender.com/api'; // Corrected: Base is just /api
     }
     // --- End Dynamic API Base URL ---
 
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         businesses.forEach(business => {
             // Note: `business.id` is used here, assuming PostgreSQL returns 'id'
-            // `business.rating` is also assumed; we'll need to calculate this on the backend
+            // `business.average_rating` is also assumed from backend
             const businessCard = `
                 <a href="business-detail.html?id=${business.id}" class="block bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow duration-200">
                     <h2 class="text-xl font-semibold text-blue-700">${business.name}</h2>
@@ -56,7 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fetches businesses from the API
     const fetchBusinesses = async () => {
         try {
-            const response = await fetch(API_BASE_URL); // `API_BASE_URL` already points to `/api/businesses`
+            // Corrected: Append '/businesses' to the base API URL
+            const response = await fetch(`${API_BASE_URL}/businesses`);
             if (!response.ok) {
                 // Log the full response status and text for debugging
                 const errorText = await response.text();
@@ -96,8 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const filtered = allBusinesses.filter(business => {
             const matchesSearch = business.name.toLowerCase().includes(searchTerm) ||
-                                  (business.description && business.description.toLowerCase().includes(searchTerm)) || // Check if description exists
-                                  business.location.toLowerCase().includes(searchTerm);
+                                 (business.description && business.description.toLowerCase().includes(searchTerm)) || // Check if description exists
+                                 business.location.toLowerCase().includes(searchTerm);
             const matchesCategory = selectedCategory === 'all' || business.category === selectedCategory;
             return matchesSearch && matchesCategory;
         });
@@ -122,8 +123,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            // New endpoint for reviews on the backend
-            const response = await fetch(`${API_BASE_URL.replace('/api/businesses', '/api/reviews')}`, { 
+            // Corrected: Append '/reviews' to the base API URL
+            const response = await fetch(`${API_BASE_URL}/reviews`, { 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
